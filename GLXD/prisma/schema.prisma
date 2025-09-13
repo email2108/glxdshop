@@ -1,0 +1,145 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  phone         String?  @unique
+  password      String?
+  referralCode  String?  @unique
+  referrerId    String?
+  role          UserRole @default(MEMBER)
+  status        UserStatus @default(ACTIVE)
+  isVerified    Boolean  @default(false)
+  otpCode       String?
+  otpExpiry     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  posts         Post[]
+  referrals     Referral[] @relation("Referrer")
+  referredBy    Referral?  @relation("Referred")
+  earnings      Earning[]
+  otpLogs       OtpLog[]
+  
+  @@map("users")
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  @@map("posts")
+}
+
+model Referral {
+  id          String         @id @default(cuid())
+  referrerId  String
+  referredId  String         @unique
+  status      ReferralStatus @default(PENDING)
+  commission  Float          @default(0)
+  bonus       Float          @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Relations
+  referrer  User     @relation("Referrer", fields: [referrerId], references: [id])
+  referred User     @relation("Referred", fields: [referredId], references: [id])
+  
+  @@unique([referrerId, referredId])
+  @@map("referrals")
+}
+
+model Earning {
+  id          String       @id @default(cuid())
+  userId      String
+  type        EarningType
+  amount      Float
+  description String?
+  status      EarningStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("earnings")
+}
+
+model OtpLog {
+  id        String   @id @default(cuid())
+  userId    String
+  otpCode   String
+  type      OtpType
+  purpose   String?
+  isUsed    Boolean  @default(false)
+  isExpired Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("otp_logs")
+}
+
+enum OtpType {
+  REGISTRATION
+  LOGIN
+  ADMIN_LOGIN
+  PASSWORD_RESET
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+  MODERATOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ReferralStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum EarningType {
+  REFERRAL_BONUS
+  ACTIVITY_BONUS
+  MILESTONE_BONUS
+}
+
+enum EarningStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
